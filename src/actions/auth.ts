@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { createSession, destroySession } from "@/lib/auth";
+import { BANNED_MESSAGE, createSession, destroySession, isBanned } from "@/lib/auth";
 import { EMAIL_RE, field, guard, type FormState } from "@/lib/forms";
 
 // Used so a login for an unknown email takes as long as a real one.
@@ -38,6 +38,7 @@ export async function register(_: FormState, fd: FormData): Promise<FormState> {
     if (!EMAIL_RE.test(email)) return { error: "Please enter a valid email address." };
     if (password.length < 8) return { error: "Password must be at least 8 characters." };
     if (password !== confirm) return { error: "Passwords don't match." };
+    if (await isBanned(email)) return { error: BANNED_MESSAGE };
     if (await db.user.findUnique({ where: { email } })) {
       return { error: "An account with that email already exists. Try signing in." };
     }
@@ -59,6 +60,8 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
     const user = await db.user.findUnique({ where: { email } });
     const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !ok) return { error: "Incorrect email or password." };
+    // Checked only after the password, so the form doesn't reveal which emails are banned.
+    if (await isBanned(email)) return { error: BANNED_MESSAGE };
 
     attempts.delete(email);
     await createSession(user.id);

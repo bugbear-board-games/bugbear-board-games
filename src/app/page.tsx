@@ -4,17 +4,19 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getSiteContent } from "@/lib/content";
 import { hasRole } from "@/lib/roles";
-import { EventCard } from "@/components/EventCard";
+import { EventCard, eventCardInclude } from "@/components/EventCard";
+import { topUpSeries } from "@/lib/series";
 
 export default async function HomePage() {
+  await topUpSeries();
   const [user, content, events] = await Promise.all([
     getCurrentUser(),
     getSiteContent(),
     db.event.findMany({
-      where: { startsAt: { gte: new Date() } },
+      where: { startsAt: { gte: new Date() }, cancelled: null },
       orderBy: { startsAt: "asc" },
       take: 3,
-      include: { _count: { select: { rsvps: true } } },
+      include: eventCardInclude,
     }),
   ]);
   const isAdmin = hasRole(user, "ADMIN");

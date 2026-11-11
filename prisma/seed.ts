@@ -1,16 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { DEFAULT_CONTENT } from "../src/lib/defaultContent";
 
 const prisma = new PrismaClient();
 
 async function main() {
   // Default editable site text. Never overwrites edits an admin already made.
-  const defaults: Record<string, string> = {
-    tagline: "Pittsburgh's friendly neighborhood board game community.",
-    mission:
-      "Bugbear Board Games brings Pittsburghers together around the table. We host welcoming game nights for everyone, from first-timers to seasoned strategists, and work to build a community where new friendships are just one dice roll away.",
-  };
-  for (const [key, value] of Object.entries(defaults)) {
+  for (const [key, value] of Object.entries(DEFAULT_CONTENT)) {
     await prisma.siteContent.upsert({ where: { key }, update: {}, create: { key, value } });
   }
 

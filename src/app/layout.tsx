@@ -34,6 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <nav className="nav" aria-label="Main">
               <Link href="/events">Events</Link>
               <Link href="/#about">About</Link>
+              <Link href="/guidelines">Guidelines</Link>
               <Link href="/contact">Contact</Link>
               {hasRole(user, "ADMIN") && <Link href="/admin">Admin</Link>}
               {user ? (

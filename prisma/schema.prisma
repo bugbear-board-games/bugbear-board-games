@@ -20,6 +20,8 @@ model User {
   sessions     Session[]
   rsvps        Rsvp[]
   events       Event[]   @relation("EventCreator")
+  bansIssued   Ban[]     @relation("BanIssuer")
+  series       EventSeries[]
 }
 
 model Session {
@@ -37,7 +39,12 @@ model Event {
   id          String   @id @default(cuid())
   title       String
   description String
-  location    String
+  locationName String  @default("")
+  address1     String  @default("")
+  address2     String?
+  city         String  @default("")
+  state        String  @default("")
+  zip          String  @default("")
   startsAt    DateTime
   endsAt      DateTime?
   capacity    Int?
@@ -47,7 +54,50 @@ model Event {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Set when this event is one date of a repeating series.
+  seriesId       String?
+  series         EventSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  occurrenceDate String? // the schedule date it was made for, "YYYY-MM-DD" (Pittsburgh time)
+  customized     Boolean  @default(false) // edited on its own; series edits leave it alone
+  cancelled      String? // null, "ORGANIZER" (cancelled by hand) or "SCHEDULE" (dropped by a schedule change)
+
+  imageId         String?
+  image           Image?  @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  imageBackground String  @default("TRANSPARENT") // TRANSPARENT, LIGHT or DARK
+
+  @@unique([seriesId, occurrenceDate])
   @@index([startsAt])
+}
+
+// A repeating event. Individual dates are created as Event rows a couple of months
+// ahead (see src/lib/series.ts) so each date has its own RSVPs and attendance.
+model EventSeries {
+  id               String   @id @default(cuid())
+  title            String
+  description      String
+  locationName     String   @default("")
+  address1         String   @default("")
+  address2         String?
+  city             String   @default("")
+  state            String   @default("")
+  zip              String   @default("")
+  capacity         Int?
+  startTime        String // "19:00", Pittsburgh time
+  durationMinutes  Int?
+  frequency        String // "WEEKLY" or "MONTHLY"
+  interval         Int      @default(1) // WEEKLY: every N weeks
+  weekday          Int // 0 = Sunday ... 6 = Saturday
+  weeksOfMonth     String   @default("") // MONTHLY: e.g. "1,3"; -1 means last
+  startDate        String // "YYYY-MM-DD"
+  generatedThrough String?
+  imageId          String?
+  image            Image?   @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  imageBackground  String   @default("TRANSPARENT")
+  createdById      String?
+  createdBy        User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  events           Event[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Rsvp {
@@ -61,6 +111,29 @@ model Rsvp {
   createdAt DateTime @default(now())
 
   @@unique([userId, eventId])
+}
+
+// Uploaded images, stored in the database so they work on any host without extra
+// services. Fine for a handful of event images; move to object storage (S3, R2) if
+// uploads grow large or numerous.
+model Image {
+  id        String        @id @default(cuid())
+  data      Bytes
+  mimeType  String
+  size      Int
+  createdAt DateTime      @default(now())
+  events    Event[]
+  series    EventSeries[]
+}
+
+// Emails barred from the site. Keyed by email (not user) so an address can be banned
+// before it has an account, and so deleting an account never lifts a ban.
+model Ban {
+  email      String   @id
+  reason     String?
+  bannedById String?
+  bannedBy   User?    @relation("BanIssuer", fields: [bannedById], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
 }
 
 // Editable text blocks for the public site (mission, tagline, etc.), keyed by name.

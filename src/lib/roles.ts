@@ -28,6 +28,15 @@ export function hasRole(user: { role: string } | null | undefined, minimum: Role
  * - Admins can move Members and Organizers between those two roles,
  *   and cannot touch other Admins.
  */
+/**
+ * Can `actor` ban `target` (an existing account, or null for an email with no account)?
+ * Same reach as role changes: never yourself or the Owner, and Admins can't ban other Admins.
+ */
+export function canBan(actor: { id: string; role: string }, target: { id: string; role: string } | null): boolean {
+  if (rank(actor.role) < rank("ADMIN")) return false;
+  return !target || assignableRoles(actor, target).length > 0;
+}
+
 export function assignableRoles(actor: { id: string; role: string }, target: { id: string; role: string }): Role[] {
   if (actor.id === target.id || target.role === "OWNER") return [];
   if (actor.role === "OWNER") return ["USER", "ORGANIZER", "ADMIN"];
