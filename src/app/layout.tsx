@@ -26,13 +26,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="site-header">
           <div className="container header-inner">
             <Link href="/" className="brand">
-              <Image src="/logo.png" alt="" width={44} height={46} priority />
+              <span className="logo-frame logo-frame-sm">
+                <Image src="/logo.png" alt="" width={44} height={46} priority />
+              </span>
               <span>Bugbear <span className="brand-sub">Board Games</span></span>
             </Link>
             <nav className="nav" aria-label="Main">
               <Link href="/events">Events</Link>
               <Link href="/#about">About</Link>
-              <Link href="/#contact">Contact</Link>
+              <Link href="/contact">Contact</Link>
               {hasRole(user, "ADMIN") && <Link href="/admin">Admin</Link>}
               {user ? (
                 <>

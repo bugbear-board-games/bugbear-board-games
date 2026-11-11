@@ -7,7 +7,7 @@ import { hasRole } from "@/lib/roles";
 import { EventCard } from "@/components/EventCard";
 
 export default async function HomePage() {
-  const [user, content, events, leaders] = await Promise.all([
+  const [user, content, events] = await Promise.all([
     getCurrentUser(),
     getSiteContent(),
     db.event.findMany({
@@ -16,7 +16,6 @@ export default async function HomePage() {
       take: 3,
       include: { _count: { select: { rsvps: true } } },
     }),
-    db.leadershipContact.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
   ]);
   const isAdmin = hasRole(user, "ADMIN");
 
@@ -24,14 +23,15 @@ export default async function HomePage() {
     <>
       <section className="hero">
         <div className="container hero-inner">
-          <Image
-            src="/logo.png"
-            alt="Bugbear Board Games logo: a friendly bugbear in glasses playing a board game"
-            width={520}
-            height={546}
-            className="hero-logo"
-            priority
-          />
+          <div className="logo-frame hero-logo">
+            <Image
+              src="/logo.png"
+              alt="Bugbear Board Games logo: a friendly bugbear in glasses playing a board game"
+              width={520}
+              height={546}
+              priority
+            />
+          </div>
           <div>
             <h1>Bugbear Board Games</h1>
             <p className="tagline">{content.tagline}</p>
@@ -45,13 +45,18 @@ export default async function HomePage() {
 
       <section id="about" className="section">
         <div className="container">
-          <div className="section-head">
-            <h2>Our Mission</h2>
-            {isAdmin && <Link href="/admin#content" className="edit-link">Edit</Link>}
-          </div>
-          <div className="panel mission">
-            {content.mission.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
-          </div>
+          {isAdmin && (
+            <div className="section-head section-head-end">
+              <Link href="/admin#content" className="edit-link">Edit</Link>
+            </div>
+          )}
+          {content.mission.trim() ? (
+            <div className="panel mission">
+              {content.mission.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
+            </div>
+          ) : (
+            isAdmin && <p className="empty">No blurb yet. Use Edit to add a short description of the community.</p>
+          )}
         </div>
       </section>
 
@@ -71,28 +76,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section id="contact" className="section">
-        <div className="container">
-          <div className="section-head">
-            <h2>Leadership</h2>
-            {isAdmin && <Link href="/admin#leadership" className="edit-link">Edit</Link>}
-          </div>
-          {leaders.length ? (
-            <div className="leader-grid">
-              {leaders.map((l) => (
-                <div key={l.id} className="leader">
-                  <h3>{l.name}</h3>
-                  <p className="role-title">{l.title}</p>
-                  {l.email && <p><a href={`mailto:${l.email}`}>{l.email}</a></p>}
-                  {l.phone && <p><a href={`tel:${l.phone.replace(/[^\d+]/g, "")}`}>{l.phone}</a></p>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="empty">Leadership contacts coming soon.</p>
-          )}
-        </div>
-      </section>
     </>
   );
 }

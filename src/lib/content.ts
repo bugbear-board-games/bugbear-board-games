@@ -4,7 +4,7 @@ import { db } from "./db";
 // (plus a default in prisma/seed.ts) to make more of the site editable.
 export const EDITABLE_CONTENT = [
   { key: "tagline", label: "Tagline", multiline: false },
-  { key: "mission", label: "Mission statement", multiline: true },
+  { key: "mission", label: "Home page blurb", multiline: true },
 ] as const;
 
 export type ContentKey = (typeof EDITABLE_CONTENT)[number]["key"];
