@@ -38,7 +38,7 @@ export async function saveLeader(_: FormState, fd: FormData): Promise<FormState>
 
     if (id) await db.leadershipContact.update({ where: { id }, data });
     else await db.leadershipContact.create({ data });
-    revalidatePath("/");
+    revalidatePath("/contact");
     revalidatePath("/admin");
     return { success: id ? "Contact updated." : "Contact added." };
   });
@@ -47,7 +47,7 @@ export async function saveLeader(_: FormState, fd: FormData): Promise<FormState>
 export async function deleteLeader(id: string) {
   await authorize("ADMIN");
   await db.leadershipContact.delete({ where: { id } });
-  revalidatePath("/");
+  revalidatePath("/contact");
   revalidatePath("/admin");
 }
 
