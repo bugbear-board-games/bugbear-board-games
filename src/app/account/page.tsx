@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import { changePassword, updateProfile } from "@/actions/account";
 import { ActionForm } from "@/components/ActionForm";
-import { EventCard } from "@/components/EventCard";
+import { EventCard, eventCardInclude } from "@/components/EventCard";
 
 export const metadata: Metadata = { title: "My account" };
 
@@ -12,7 +12,7 @@ export default async function AccountPage() {
   const user = await requireRole("USER");
   const rsvps = await db.rsvp.findMany({
     where: { userId: user.id, event: { startsAt: { gte: new Date() } } },
-    include: { event: { include: { _count: { select: { rsvps: true } } } } },
+    include: { event: { include: eventCardInclude } },
     orderBy: { event: { startsAt: "asc" } },
   });
 

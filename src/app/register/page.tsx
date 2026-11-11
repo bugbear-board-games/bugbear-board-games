@@ -15,7 +15,10 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
     <div className="container page">
       <div className="panel auth-card">
         <h1>Join the table</h1>
-        <p className="muted">Create a free account to RSVP for game nights.</p>
+        <p className="muted">
+          Create a free account to RSVP for game nights. By joining, you agree to
+          our <Link href="/guidelines">community guidelines</Link>.
+        </p>
         <ActionForm action={register} submitLabel="Create account" pendingLabel="Creating…">
           <input type="hidden" name="next" value={next} />
           <label>Name<input name="name" autoComplete="name" required maxLength={80} /></label>

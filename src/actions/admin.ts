@@ -4,9 +4,9 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { authorize } from "@/lib/auth";
+import { authorize, isBanned } from "@/lib/auth";
 import { EMAIL_RE, field, guard, type FormState } from "@/lib/forms";
-import { assignableRoles, isRole, ROLE_LABELS } from "@/lib/roles";
+import { assignableRoles, canBan, isRole, ROLE_LABELS } from "@/lib/roles";
 import { EDITABLE_CONTENT } from "@/lib/content";
 
 export async function updateSiteContent(_: FormState, fd: FormData): Promise<FormState> {
@@ -57,6 +57,7 @@ export async function setUserRole(userId: string, _: FormState, fd: FormData): P
     const role = field(fd, "role");
     const target = await db.user.findUnique({ where: { id: userId } });
     if (!target) return { error: "User not found." };
+    if (await isBanned(target.email)) return { error: `${target.name} is banned. Unban them first.` };
     if (!isRole(role) || !assignableRoles(actor, target).includes(role)) {
       return { error: "You don't have permission to assign that role." };
     }
@@ -79,6 +80,7 @@ export async function transferOwnership(_: FormState, fd: FormData): Promise<For
     const target = await db.user.findUnique({ where: { email } });
     if (!target) return { error: "No account exists with that email. They need to sign up first." };
     if (target.id === owner.id) return { error: "You already own the site." };
+    if (await isBanned(target.email)) return { error: "That account is banned." };
 
     // Exactly one Owner at all times: swap both roles in a single transaction.
     await db.$transaction([
@@ -89,4 +91,46 @@ export async function transferOwnership(_: FormState, fd: FormData): Promise<For
     // The Owner-only form disappears for the former owner, so confirm via a banner instead.
     redirect(`/admin?transferred=${encodeURIComponent(target.name)}`);
   });
+}
+
+export async function banEmail(_: FormState, fd: FormData): Promise<FormState> {
+  return guard(async () => {
+    const actor = await authorize("ADMIN");
+    const email = field(fd, "email").toLowerCase();
+    const reason = field(fd, "reason").slice(0, 500) || null;
+    if (!EMAIL_RE.test(email)) return { error: "Please enter a valid email address." };
+    if (await isBanned(email)) return { error: `${email} is already banned.` };
+
+    const target = await db.user.findUnique({ where: { email } });
+    if (!canBan(actor, target)) {
+      if (target?.id === actor.id) return { error: "You can't ban yourself." };
+      if (target?.role === "OWNER") return { error: "The Owner can't be banned." };
+      return { error: "Only the Owner can ban an Admin." };
+    }
+
+    await db.$transaction([
+      db.ban.create({ data: { email, reason, bannedById: actor.id } }),
+      ...(target
+        ? [
+            // Sign them out everywhere, drop them to Member so an unban never quietly
+            // restores Organizer/Admin powers, and free their spots at upcoming events.
+            db.session.deleteMany({ where: { userId: target.id } }),
+            db.user.update({ where: { id: target.id }, data: { role: "USER" } }),
+            db.rsvp.deleteMany({ where: { userId: target.id, event: { startsAt: { gte: new Date() } } } }),
+          ]
+        : []),
+    ]);
+    revalidatePath("/", "layout");
+    return {
+      success: target
+        ? `${target.name} (${email}) is banned and has been signed out.`
+        : `${email} is banned. No account uses it yet; it can't be used to sign up.`,
+    };
+  });
+}
+
+export async function unbanEmail(email: string): Promise<void> {
+  await authorize("ADMIN");
+  await db.ban.deleteMany({ where: { email } });
+  revalidatePath("/admin");
 }

@@ -34,6 +34,13 @@ export async function destroySession() {
   jar.delete(COOKIE);
 }
 
+export async function isBanned(email: string): Promise<boolean> {
+  return !!(await db.ban.findUnique({ where: { email: email.toLowerCase() } }));
+}
+
+export const BANNED_MESSAGE =
+  "This email has been banned from Bugbear Board Games. If you think this is a mistake, please contact our leadership team.";
+
 export type CurrentUser = { id: string; email: string; name: string; role: string };
 
 /** The signed-in user, or null. Cached for the duration of one request. */
@@ -45,6 +52,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     include: { user: { select: { id: true, email: true, name: true, role: true } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
+  // Banning also deletes sessions; this catches any created in a race with the ban.
+  if (await isBanned(session.user.email)) return null;
   return session.user;
 });
 

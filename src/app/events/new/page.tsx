@@ -13,7 +13,7 @@ export default async function NewEventPage() {
       <Link href="/events" className="back-link">← All events</Link>
       <div className="panel">
         <h1>New event</h1>
-        <EventForm action={createEvent} submitLabel="Publish event" />
+        <EventForm action={createEvent} repeatMode="optional" submitLabel="Publish event" />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { EDITABLE_CONTENT, getSiteContent } from "@/lib/content";
 import { assignableRoles, rank, ROLE_LABELS, type Role } from "@/lib/roles";
-import { deleteLeader, saveLeader, setUserRole, transferOwnership, updateSiteContent } from "@/actions/admin";
+import { banEmail, deleteLeader, saveLeader, setUserRole, transferOwnership, unbanEmail, updateSiteContent } from "@/actions/admin";
 import { ActionForm } from "@/components/ActionForm";
 import { ConfirmButton } from "@/components/ConfirmButton";
 
@@ -31,11 +31,14 @@ function LeaderFields({ leader }: { leader?: Leader }) {
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ transferred?: string }> }) {
   const me = await requireRole("ADMIN");
   const { transferred } = await searchParams;
-  const [content, leaders, users] = await Promise.all([
+  const [content, leaders, users, bans] = await Promise.all([
     getSiteContent(),
     db.leadershipContact.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     db.user.findMany({ select: { id: true, name: true, email: true, role: true, createdAt: true } }),
+    db.ban.findMany({ orderBy: { createdAt: "desc" }, include: { bannedBy: { select: { name: true } } } }),
   ]);
+  const bannedEmails = new Set(bans.map((b) => b.email));
+  const nameByEmail = new Map(users.map((u) => [u.email, u.name]));
   users.sort((a, b) => rank(b.role) - rank(a.role) || a.name.localeCompare(b.name));
 
   return (
@@ -50,6 +53,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <a href="#content" className="btn btn-ghost btn-sm">Site text</a>
         <a href="#leadership" className="btn btn-ghost btn-sm">Leadership</a>
         <a href="#members" className="btn btn-ghost btn-sm">Members &amp; roles</a>
+        <a href="#bans" className="btn btn-ghost btn-sm">Bans</a>
         {me.role === "OWNER" && <a href="#ownership" className="btn btn-ghost btn-sm">Ownership</a>}
       </nav>
 
@@ -60,11 +64,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <label key={c.key}>
               {c.label}
               {c.multiline
-                ? <textarea name={c.key} rows={6} required defaultValue={content[c.key]} />
+                ? <textarea name={c.key} rows={c.key === "guidelines" ? 12 : 6} required defaultValue={content[c.key]} />
                 : <input name={c.key} required defaultValue={content[c.key]} />}
+              {c.hint && <span className="muted field-hint">{c.hint}</span>}
             </label>
           ))}
-          <p className="muted" style={{ margin: 0 }}>Tip: leave a blank line between paragraphs.</p>
         </ActionForm>
       </section>
 
@@ -100,12 +104,17 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Change role</th></tr></thead>
             <tbody>
               {users.map((u) => {
-                const options = assignableRoles(me, u);
+                const banned = bannedEmails.has(u.email);
+                const options = banned ? [] : assignableRoles(me, u);
                 return (
                   <tr key={u.id}>
                     <td>{u.name}{u.id === me.id && <span className="muted"> (you)</span>}</td>
                     <td>{u.email}</td>
-                    <td><span className={`role-badge role-${u.role}`}>{ROLE_LABELS[u.role as Role]}</span></td>
+                    <td>
+                      {banned
+                        ? <span className="role-badge role-BANNED">Banned</span>
+                        : <span className={`role-badge role-${u.role}`}>{ROLE_LABELS[u.role as Role]}</span>}
+                    </td>
                     <td>
                       {options.length ? (
                         <ActionForm action={setUserRole.bind(null, u.id)} className="inline-form"
@@ -122,6 +131,45 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section id="bans" className="panel">
+        <h2>Banned users</h2>
+        <p className="muted">
+          A banned email is signed out everywhere and can&apos;t sign in or create an account. You can ban
+          an email before anyone signs up with it. Banning an Organizer or Admin also drops them to Member
+          and cancels their RSVPs to upcoming events.
+          {me.role === "OWNER" ? " Nobody can ban you." : " Only the Owner can ban an Admin."}
+        </p>
+        <ActionForm action={banEmail} submitLabel="Ban email" pendingLabel="Banning…" buttonClassName="btn btn-danger" resetOnSuccess>
+          <div className="form-row">
+            <label>Email<input type="email" name="email" required autoComplete="off" /></label>
+            <label>Reason <span className="muted">(optional, only Admins see it)</span>
+              <input name="reason" maxLength={500} placeholder="e.g. Guideline 1, repeated" />
+            </label>
+          </div>
+        </ActionForm>
+        {bans.length > 0 && (
+          <div className="table-wrap" style={{ marginTop: 24 }}>
+            <table>
+              <thead><tr><th>Email</th><th>Reason</th><th>Banned by</th><th>Date</th><th></th></tr></thead>
+              <tbody>
+                {bans.map((b) => (
+                  <tr key={b.email}>
+                    <td>
+                      {b.email}
+                      {nameByEmail.has(b.email) && <div className="muted">{nameByEmail.get(b.email)}</div>}
+                    </td>
+                    <td>{b.reason ?? <span className="muted">—</span>}</td>
+                    <td>{b.bannedBy?.name ?? <span className="muted">—</span>}</td>
+                    <td>{b.createdAt.toLocaleDateString("en-US", { timeZone: "America/New_York", dateStyle: "medium" })}</td>
+                    <td><ConfirmButton action={unbanEmail.bind(null, b.email)} label="Unban" confirmLabel="Yes, unban" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {me.role === "OWNER" && (

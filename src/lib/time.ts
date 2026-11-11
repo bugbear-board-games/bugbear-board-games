@@ -26,6 +26,11 @@ export function parseLocalDateTime(value: string): Date | null {
   return new Date(result);
 }
 
+/** Today's date in Pittsburgh, as "YYYY-MM-DD". */
+export function todayLocal(now = new Date()): string {
+  return toLocalInputValue(now).slice(0, 10);
+}
+
 /** Format a Date for a `datetime-local` input, in Pittsburgh time. */
 export function toLocalInputValue(date: Date | null | undefined): string {
   if (!date) return "";
