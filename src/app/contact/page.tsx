@@ -2,15 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { hasRole } from "@/lib/roles";
+import { hasRole, rank, ROLE_LABELS, type Role } from "@/lib/roles";
 
 export const metadata: Metadata = { title: "Contact" };
 
 export default async function ContactPage() {
-  const [user, leaders] = await Promise.all([
+  const [user, people, bans] = await Promise.all([
     getCurrentUser(),
-    db.leadershipContact.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    // Everyone Organizer and up is listed automatically.
+    db.user.findMany({
+      where: { role: { in: ["ORGANIZER", "ADMIN", "OWNER"] } },
+      select: { id: true, name: true, email: true, role: true, displayTitle: true, publicEmail: true },
+    }),
+    db.ban.findMany({ select: { email: true } }),
   ]);
+  const banned = new Set(bans.map((b) => b.email));
+  const leaders = people
+    .filter((p) => !banned.has(p.email))
+    .sort((a, b) => rank(b.role) - rank(a.role) || a.name.localeCompare(b.name));
 
   return (
     <div className="container page">
@@ -24,9 +33,8 @@ export default async function ContactPage() {
           {leaders.map((l) => (
             <div key={l.id} className="leader">
               <h3>{l.name}</h3>
-              <p className="role-title">{l.title}</p>
-              {l.email && <p><a href={`mailto:${l.email}`}>{l.email}</a></p>}
-              {l.phone && <p><a href={`tel:${l.phone.replace(/[^\d+]/g, "")}`}>{l.phone}</a></p>}
+              <p className="role-title">{l.displayTitle || ROLE_LABELS[l.role as Role]}</p>
+              {l.publicEmail && <p><a href={`mailto:${l.publicEmail}`}>{l.publicEmail}</a></p>}
             </div>
           ))}
         </div>

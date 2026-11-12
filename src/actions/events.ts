@@ -21,8 +21,12 @@ function parseEvent(fd: FormData) {
   const startsAt = startDate && startTime ? parseLocalDateTime(`${startDate}T${startTime}`) : null;
   // End date defaults to the start date; the form fills it in, but don't rely on that.
   const endTime = field(fd, "endTime");
-  const endDate = field(fd, "endDate") || startDate;
-  const endsAt = endTime ? parseLocalDateTime(`${endDate}T${endTime}`) : null;
+  // Repeating events only ask for an end time (the end date field is hidden): it ends on the
+  // start date, or the next day if the end time is earlier (e.g. 8 PM to 1 AM).
+  const endDate = isRepeating(fd)
+    ? (startDate && endTime && startTime && endTime <= startTime ? addDays(startDate, 1) : startDate)
+    : field(fd, "endDate") || startDate;
+  const endsAt = endTime && endDate ? parseLocalDateTime(`${endDate}T${endTime}`) : null;
   const capRaw = field(fd, "capacity");
   const capacity = capRaw ? Number(capRaw) : null;
 

@@ -8,3 +8,13 @@ next-env.d.ts
 prisma/*.db
 prisma/*.db-journal
 .neon
+.vercel
+.env*
+
+# ...but keep the template tracked
+!.env.example
+
+# Test output
+.next-test/
+test-results/
+playwright-report/

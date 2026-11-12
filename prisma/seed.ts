@@ -1,6 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { DEFAULT_CONTENT } from "../src/lib/defaultContent";
+import { DEFAULT_CONTENT, DEFAULT_GUIDELINES, splitLegacyGuidelines } from "../src/lib/defaultContent";
 import { createPrismaClient } from "../src/lib/prismaClient";
 
 const prisma = createPrismaClient();
@@ -9,6 +9,15 @@ async function main() {
   // Default editable site text. Never overwrites edits an admin already made.
   for (const [key, value] of Object.entries(DEFAULT_CONTENT)) {
     await prisma.siteContent.upsert({ where: { key }, update: {}, create: { key, value } });
+  }
+
+  // Guidelines now have one row per rule. The first time this runs, carry over the old
+  // single-text guidelines (so edits made on the live site survive), else use the defaults.
+  if ((await prisma.guideline.count()) === 0) {
+    const legacy = await prisma.siteContent.findUnique({ where: { key: "guidelines" } });
+    const rules = legacy?.value.trim() ? splitLegacyGuidelines(legacy.value) : DEFAULT_GUIDELINES;
+    await prisma.guideline.createMany({ data: rules.map((r, i) => ({ ...r, sortOrder: i })) });
+    console.log(`Guidelines: created ${rules.length} rules (${legacy ? "from the existing text" : "defaults"}).`);
   }
 
   const existingOwner = await prisma.user.findFirst({ where: { role: "OWNER" } });

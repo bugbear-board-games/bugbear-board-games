@@ -19,6 +19,9 @@ model User {
   name         String
   passwordHash String
   role         String    @default("USER")
+  // Shown on the Contact page for Organizers and up; set by Admins.
+  displayTitle String?   // e.g. "President"; defaults to the role name when empty
+  publicEmail  String?   // e.g. a club address; account emails are never shown publicly
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   sessions     Session[]
@@ -147,6 +150,8 @@ model SiteContent {
   updatedAt DateTime @updatedAt
 }
 
+// Legacy: the Contact page now lists Organizers and up automatically (User.displayTitle /
+// User.publicEmail). Kept so no existing data is lost; drop in a later migration once empty.
 model LeadershipContact {
   id        String  @id @default(cuid())
   name      String
@@ -154,4 +159,34 @@ model LeadershipContact {
   email     String?
   phone     String?
   sortOrder Int     @default(0)
+}
+
+// One community guideline. Numbered on the site by its position (sortOrder).
+model Guideline {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+// Home page announcements. Shown while showUntil is empty or still in the future.
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  body      String
+  showUntil DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Social media links shown on the home page.
+model SocialLink {
+  id        String @id @default(cuid())
+  platform  String // key from src/lib/social.ts, e.g. "instagram"
+  url       String
+  sortOrder Int    @default(0)
 }

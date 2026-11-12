@@ -21,7 +21,17 @@ const MIGRATIONS_DIR = join(__dirname, "..", "prisma", "migrations");
 async function main() {
   const connectionString = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL_UNPOOLED is not set. Run `neon env pull --branch dev`.");
-  console.log(`Target Neon branch: ${process.env.NEON_BRANCH ?? "(unknown — check .env)"}`);
+  // Endpoint IDs aren't secret, and they show which branch is targeted even where NEON_BRANCH isn't set (e.g. Vercel).
+  const endpointOf = (url: string) => new URL(url).hostname.split(".")[0].replace(/-pooler$/, "");
+  const endpoint = endpointOf(connectionString);
+  // The app uses DATABASE_URL and migrations use DATABASE_URL_UNPOOLED; they must be the same database.
+  if (process.env.DATABASE_URL && endpointOf(process.env.DATABASE_URL) !== endpoint) {
+    throw new Error(
+      `DATABASE_URL (${endpointOf(process.env.DATABASE_URL)}) and DATABASE_URL_UNPOOLED (${endpoint}) point at different ` +
+        "databases. Re-run `neon env pull --branch dev` (locally) or fix the variables in Vercel.",
+    );
+  }
+  console.log(`Target Neon endpoint: ${endpoint}${process.env.NEON_BRANCH ? ` (branch ${process.env.NEON_BRANCH})` : ""}`);
 
   const pool = new Pool({ connectionString });
   const client = await pool.connect();

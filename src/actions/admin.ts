@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { authorize, isBanned } from "@/lib/auth";
 import { EMAIL_RE, field, guard, type FormState } from "@/lib/forms";
-import { assignableRoles, canBan, isRole, ROLE_LABELS } from "@/lib/roles";
+import { assignableRoles, canBan, isRole, rank, ROLE_LABELS } from "@/lib/roles";
+import { isPlatform, normalizeUrl } from "@/lib/social";
+import { parseLocalDateTime } from "@/lib/time";
 import { EDITABLE_CONTENT } from "@/lib/content";
 
 export async function updateSiteContent(_: FormState, fd: FormData): Promise<FormState> {
@@ -23,33 +25,126 @@ export async function updateSiteContent(_: FormState, fd: FormData): Promise<For
   });
 }
 
-export async function saveLeader(_: FormState, fd: FormData): Promise<FormState> {
+// ---- Community guidelines (one row per rule; numbered by position) ----
+
+function refreshGuidelines() {
+  revalidatePath("/guidelines");
+  revalidatePath("/admin");
+}
+
+export async function saveGuideline(id: string | null, _: FormState, fd: FormData): Promise<FormState> {
   return guard(async () => {
     await authorize("ADMIN");
-    const id = field(fd, "id");
-    const data = {
-      name: field(fd, "name"),
-      title: field(fd, "title"),
-      email: field(fd, "email") || null,
-      phone: field(fd, "phone") || null,
-      sortOrder: Number(field(fd, "sortOrder")) || 0,
-    };
-    if (!data.name || !data.title) return { error: "Name and title are required." };
-    if (data.email && !EMAIL_RE.test(data.email)) return { error: "That email address doesn't look right." };
-
-    if (id) await db.leadershipContact.update({ where: { id }, data });
-    else await db.leadershipContact.create({ data });
-    revalidatePath("/contact");
-    revalidatePath("/admin");
-    return { success: id ? "Contact updated." : "Contact added." };
+    const title = field(fd, "title");
+    const body = field(fd, "body");
+    if (!title || title.length > 200) return { error: "Each rule needs a title (up to 200 characters)." };
+    if (body.length > 2000) return { error: "Keep the description under 2,000 characters." };
+    if (id) {
+      await db.guideline.update({ where: { id }, data: { title, body } });
+    } else {
+      const last = await db.guideline.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+      await db.guideline.create({ data: { title, body, sortOrder: (last?.sortOrder ?? -1) + 1 } });
+    }
+    refreshGuidelines();
+    return { success: id ? "Rule saved." : "Rule added." };
   });
 }
 
-export async function deleteLeader(id: string) {
+export async function deleteGuideline(id: string) {
   await authorize("ADMIN");
-  await db.leadershipContact.delete({ where: { id } });
-  revalidatePath("/contact");
+  await db.guideline.delete({ where: { id } });
+  refreshGuidelines();
+}
+
+/** Swap a rule with its neighbor above (-1) or below (+1). */
+export async function moveGuideline(id: string, direction: -1 | 1, _: FormState, _fd?: FormData): Promise<FormState> {
+  return guard(async () => {
+    await authorize("ADMIN");
+    const rules = await db.guideline.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+    const i = rules.findIndex((r) => r.id === id);
+    const j = i + direction;
+    if (i < 0 || j < 0 || j >= rules.length) return {};
+    [rules[i], rules[j]] = [rules[j], rules[i]];
+    // Renumber everything so positions stay clean (0, 1, 2, ...).
+    await db.$transaction(rules.map((r, n) => db.guideline.update({ where: { id: r.id }, data: { sortOrder: n } })));
+    refreshGuidelines();
+    return {};
+  });
+}
+
+// ---- Announcements ----
+
+export async function saveAnnouncement(id: string | null, _: FormState, fd: FormData): Promise<FormState> {
+  return guard(async () => {
+    await authorize("ADMIN");
+    const title = field(fd, "title");
+    const body = field(fd, "body");
+    const untilRaw = field(fd, "showUntil");
+    if (!title || title.length > 120) return { error: "Give the announcement a title (up to 120 characters)." };
+    if (!body) return { error: "Please write the announcement." };
+    // "Show until" is a date; keep it up through the end of that day in Pittsburgh.
+    const showUntil = untilRaw ? parseLocalDateTime(`${untilRaw}T23:59`) : null;
+    if (untilRaw && !showUntil) return { error: "The show-until date is invalid." };
+    const data = { title, body, showUntil };
+    if (id) await db.announcement.update({ where: { id }, data });
+    else await db.announcement.create({ data });
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: id ? "Announcement saved." : "Announcement posted." };
+  });
+}
+
+export async function deleteAnnouncement(id: string) {
+  await authorize("ADMIN");
+  await db.announcement.delete({ where: { id } });
+  revalidatePath("/");
   revalidatePath("/admin");
+}
+
+// ---- Social media links ----
+
+export async function saveSocialLink(id: string | null, _: FormState, fd: FormData): Promise<FormState> {
+  return guard(async () => {
+    await authorize("ADMIN");
+    const platform = field(fd, "platform");
+    const url = normalizeUrl(field(fd, "url"));
+    if (!isPlatform(platform)) return { error: "Choose a platform." };
+    if (!url) return { error: "Enter a full web address, like https://instagram.com/bugbearboardgames." };
+    if (id) {
+      await db.socialLink.update({ where: { id }, data: { platform, url } });
+    } else {
+      const last = await db.socialLink.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+      await db.socialLink.create({ data: { platform, url, sortOrder: (last?.sortOrder ?? -1) + 1 } });
+    }
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: id ? "Link saved." : "Link added." };
+  });
+}
+
+export async function deleteSocialLink(id: string) {
+  await authorize("ADMIN");
+  await db.socialLink.delete({ where: { id } });
+  revalidatePath("/");
+  revalidatePath("/admin");
+}
+
+// ---- Leadership cards (Contact page lists Organizers and up automatically) ----
+
+export async function updateLeaderCard(userId: string, _: FormState, fd: FormData): Promise<FormState> {
+  return guard(async () => {
+    await authorize("ADMIN");
+    const target = await db.user.findUnique({ where: { id: userId } });
+    if (!target || rank(target.role) < rank("ORGANIZER")) return { error: "Only Organizers and up appear on the Contact page." };
+    const displayTitle = field(fd, "displayTitle") || null;
+    const publicEmail = field(fd, "publicEmail").toLowerCase() || null;
+    if (displayTitle && displayTitle.length > 60) return { error: "Keep the title under 60 characters." };
+    if (publicEmail && !EMAIL_RE.test(publicEmail)) return { error: "That email address doesn't look right." };
+    await db.user.update({ where: { id: userId }, data: { displayTitle, publicEmail } });
+    revalidatePath("/contact");
+    revalidatePath("/admin");
+    return { success: `${target.name}'s card saved.` };
+  });
 }
 
 export async function setUserRole(userId: string, _: FormState, fd: FormData): Promise<FormState> {
@@ -71,9 +166,9 @@ export async function setUserRole(userId: string, _: FormState, fd: FormData): P
 export async function transferOwnership(_: FormState, fd: FormData): Promise<FormState> {
   return guard(async () => {
     const owner = await authorize("OWNER");
-    const email = field(fd, "email").toLowerCase();
-    const password = String(fd.get("password") ?? "");
-    if (field(fd, "confirm") !== "TRANSFER") return { error: "Type TRANSFER to confirm." };
+    const email = field(fd, "newOwnerEmail").toLowerCase();
+    const password = String(fd.get("ownerPassword") ?? "");
+    if (field(fd, "transferConfirm") !== "TRANSFER") return { error: "Type TRANSFER to confirm." };
 
     const ownerRecord = await db.user.findUniqueOrThrow({ where: { id: owner.id } });
     if (!(await bcrypt.compare(password, ownerRecord.passwordHash))) return { error: "Your password is incorrect." };
