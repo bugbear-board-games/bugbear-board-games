@@ -1,8 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { DEFAULT_CONTENT } from "../src/lib/defaultContent";
+import { createPrismaClient } from "../src/lib/prismaClient";
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function main() {
   // Default editable site text. Never overwrites edits an admin already made.
@@ -23,6 +24,9 @@ async function main() {
     throw new Error("Set OWNER_EMAIL and OWNER_PASSWORD in .env before seeding.");
   }
   if (password.length < 8) throw new Error("OWNER_PASSWORD must be at least 8 characters.");
+  if (process.env.VERCEL_ENV === "production" && (password === "change-me-please" || email === "owner@example.com")) {
+    throw new Error("Set a real OWNER_EMAIL and OWNER_PASSWORD in Vercel before the first production deploy.");
+  }
 
   const passwordHash = await bcrypt.hash(password, 12);
   await prisma.user.upsert({

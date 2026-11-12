@@ -297,6 +297,10 @@ th { color: var(--gold); font-family: var(--font-display); font-weight: 600; }
 .role-USER { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
 .inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .inline-form select { width: auto; }
+.reset-pw summary { font-size: .9rem; }
+.reset-pw[open] { min-width: 260px; }
+.reset-pw .inline-form { margin-top: 8px; }
+.reset-pw .msg-success { user-select: all; overflow-wrap: anywhere; }
 .inline-form .msg { flex-basis: 100%; font-size: .85rem; padding: 6px 10px; }
 .leader-edit { border-top: 1px solid var(--line); padding-top: 20px; margin-top: 20px; }
 .danger-zone { border-color: rgba(255, 107, 91, .5); }

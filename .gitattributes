@@ -1,0 +1,3 @@
+# Migration checksums must match on Windows and on Vercel (Linux), so keep SQL as LF.
+*.sql text eol=lf
+migration_lock.toml text eol=lf

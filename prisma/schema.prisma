@@ -2,13 +2,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Postgres everywhere: Neon's "main" branch in production, a separate Neon "dev" branch locally.
+// DATABASE_URL is the pooled connection the app uses; DATABASE_URL_UNPOOLED is the direct one
+// for migrations. These are the names Neon's CLI (`neon env pull`) and Vercel integration use.
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // Role hierarchy (highest first): OWNER > ADMIN > ORGANIZER > USER.
-// Stored as a string so the same schema works on SQLite and Postgres.
+// Stored as a string (not a Postgres enum) so adding a role is a code change, not a migration.
 model User {
   id           String    @id @default(cuid())
   email        String    @unique

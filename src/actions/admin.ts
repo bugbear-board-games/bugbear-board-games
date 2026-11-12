@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -133,4 +134,36 @@ export async function unbanEmail(email: string): Promise<void> {
   await authorize("ADMIN");
   await db.ban.deleteMany({ where: { email } });
   revalidatePath("/admin");
+}
+
+// Unambiguous characters only (no 0/O, 1/l/I), so it's easy to read out or type.
+const TEMP_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
+function temporaryPassword(): string {
+  const bytes = randomBytes(12);
+  const chars = Array.from(bytes, (b) => TEMP_CHARS[b % TEMP_CHARS.length]);
+  return `${chars.slice(0, 4).join("")}-${chars.slice(4, 8).join("")}-${chars.slice(8, 12).join("")}`;
+}
+
+/**
+ * Stopgap until "forgot password" emails exist: an Admin generates a temporary password,
+ * shares it with the member privately, and the member changes it on their Account page.
+ * Same reach as role changes and bans (never yourself or the Owner; Admins can't reset Admins).
+ */
+export async function resetUserPassword(userId: string, _: FormState, _fd?: FormData): Promise<FormState> {
+  return guard(async () => {
+    const actor = await authorize("ADMIN");
+    const target = await db.user.findUnique({ where: { id: userId } });
+    if (!target) return { error: "User not found." };
+    if (!canBan(actor, target)) return { error: "You don't have permission to reset this password." };
+    if (await isBanned(target.email)) return { error: `${target.name} is banned.` };
+
+    const password = temporaryPassword();
+    await db.$transaction([
+      db.user.update({ where: { id: target.id }, data: { passwordHash: await bcrypt.hash(password, 12) } }),
+      db.session.deleteMany({ where: { userId: target.id } }), // sign them out everywhere
+    ]);
+    return {
+      success: `Temporary password for ${target.name}: ${password} — share it privately. They can change it on their Account page.`,
+    };
+  });
 }
