@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { db, load, newUser, setRole, uniq } from "./helpers";
+import { db, load, newUser, setRole, uniq, openAdmin } from "./helpers";
 
 test("guidelines: one field set per rule, auto-numbered, reorderable, formatting kept", async ({ browser }) => {
   const { page } = await newUser(browser, "ADMIN");
-  await load(page, "/admin");
+  await openAdmin(page, "guidelines");
   const g = page.locator("section#guidelines");
   await expect(page.locator('textarea[name="guidelines"]')).toHaveCount(0); // no more single text box
   const items = g.locator(".guideline-admin-item");
@@ -27,7 +27,7 @@ test("guidelines: one field set per rule, auto-numbered, reorderable, formatting
   expect(await rule.locator("p").innerText()).toBe("Line one.\nLine two.");
   await expect(page.locator("li.guideline")).toHaveCount(start + 1);
 
-  await load(page, "/admin");
+  await openAdmin(page, "guidelines");
   const mine = g.locator(".guideline-admin-item", { hasText: title });
   await mine.locator("summary").click();
   await mine.locator('button:has-text("Delete rule")').click();
@@ -37,7 +37,7 @@ test("guidelines: one field set per rule, auto-numbered, reorderable, formatting
 
 test("home page blurb keeps line breaks and spacing", async ({ browser }) => {
   const { page } = await newUser(browser, "ADMIN");
-  await load(page, "/admin");
+  await openAdmin(page, "content");
   const original = await page.inputValue('textarea[name="mission"]');
   const blurb = "First line\nSecond line right below\n\n    Indented after a blank line";
   try {
@@ -47,7 +47,7 @@ test("home page blurb keeps line breaks and spacing", async ({ browser }) => {
     await load(page, "/");
     expect(await page.locator(".mission").innerText()).toBe(blurb);
   } finally {
-    await load(page, "/admin");
+    await openAdmin(page, "content");
     await page.fill('textarea[name="mission"]', original);
     await page.click('section#content button:has-text("Save site text")');
     await expect(page.locator("section#content .msg-success")).toBeVisible();
@@ -60,7 +60,7 @@ test("announcements show only while active", async ({ browser }) => {
   await load(page, "/");
   await expect(page.locator(".announcements-section")).toHaveCount(0);
 
-  await load(page, "/admin");
+  await openAdmin(page, "announcements");
   const a = page.locator("section#announcements");
   await a.locator('div.leader-edit input[name="title"]').fill("Snow day");
   await a.locator('div.leader-edit textarea[name="body"]').fill("No game night tonight.\nStay warm!");
@@ -74,7 +74,7 @@ test("announcements show only while active", async ({ browser }) => {
   await db.announcement.updateMany({ where: { title: "Snow day" }, data: { showUntil: new Date(Date.now() - 60_000) } });
   await load(page, "/");
   await expect(page.locator(".announcements-section")).toHaveCount(0);
-  await load(page, "/admin");
+  await openAdmin(page, "announcements");
   await expect(a.locator(".status-off", { hasText: "Ended" })).toBeVisible();
   await db.announcement.deleteMany({});
 });
@@ -82,7 +82,7 @@ test("announcements show only while active", async ({ browser }) => {
 test("social links: only real web links, shown on the home page in order", async ({ browser }) => {
   await db.socialLink.deleteMany({});
   const { page } = await newUser(browser, "ADMIN");
-  await load(page, "/admin");
+  await openAdmin(page, "social");
   const s = page.locator("section#social");
   const add = async (platform: string, url: string) => {
     await s.locator('div.leader-edit select[name="platform"]').selectOption(platform);
@@ -115,7 +115,7 @@ test("contact page lists Organizers and up automatically; Admins set title and p
   await expect(page.locator("main")).not.toContainText(org.email);
   await expect(page.locator('main a[href^="tel:"]')).toHaveCount(0);
 
-  await load(page, "/admin");
+  await openAdmin(page, "leadership");
   const edit = page.locator("section#leadership details", { hasText: name });
   await edit.locator("summary").click();
   await edit.locator('input[name="displayTitle"]').fill("Events Lead");

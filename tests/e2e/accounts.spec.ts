@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { OWNER_TEST_PASSWORD } from "./global-setup";
-import { db, emailFor, load, newUser, PASSWORD, register, signIn } from "./helpers";
+import { db, emailFor, load, newUser, PASSWORD, register, signIn, openAdmin } from "./helpers";
 
 test.describe("required-field notices", () => {
   test("sign-up flags each empty field, clears as it's filled, and checks email format", async ({ page }) => {
@@ -34,7 +34,7 @@ test.describe("required-field notices", () => {
 test("admin can give a locked-out member a temporary password", async ({ browser }) => {
   const member = await newUser(browser, "USER", "Mo Member");
   const { page: admin } = await newUser(browser, "ADMIN", "Ada Admin");
-  await load(admin, "/admin");
+  await openAdmin(admin, "members");
   const row = admin.locator("tr", { hasText: member.email });
   await row.locator("summary", { hasText: "Reset" }).click();
   await row.locator('button:has-text("Generate temporary password")').click();
@@ -61,7 +61,7 @@ test("admin can give a locked-out member a temporary password", async ({ browser
 test("admins can't reset other admins or themselves", async ({ browser }) => {
   const other = await newUser(browser, "ADMIN", "Other Admin");
   const { page, email } = await newUser(browser, "ADMIN", "Self Admin");
-  await load(page, "/admin");
+  await openAdmin(page, "members");
   await expect(page.locator("tr", { hasText: other.email }).locator("summary")).toHaveCount(0);
   await expect(page.locator("tr", { hasText: email }).locator("summary")).toHaveCount(0);
 });
@@ -69,7 +69,7 @@ test("admins can't reset other admins or themselves", async ({ browser }) => {
 test.describe("transfer ownership", () => {
   test("fields can't be autofilled and only accept deliberate input", async ({ page }) => {
     await signIn(page, process.env.E2E_OWNER_EMAIL!, OWNER_TEST_PASSWORD);
-    await load(page, "/admin");
+    await openAdmin(page, "ownership");
     const section = page.locator("#ownership");
     await expect(section.locator("form")).toHaveAttribute("autocomplete", "off");
     const inputs = section.locator("input");
@@ -92,7 +92,7 @@ test.describe("transfer ownership", () => {
     const ownerEmail = process.env.E2E_OWNER_EMAIL!;
     const next = await newUser(browser, "ADMIN", "Next Owner");
     await signIn(page, ownerEmail, OWNER_TEST_PASSWORD);
-    await load(page, "/admin");
+    await openAdmin(page, "ownership");
     const s = page.locator("#ownership");
     await s.locator('input[name="newOwnerEmail"]').click();
     await s.locator('input[name="newOwnerEmail"]').fill(next.email);
@@ -105,7 +105,7 @@ test.describe("transfer ownership", () => {
     expect((await db.user.findUniqueOrThrow({ where: { email: next.email } })).role).toBe("OWNER");
 
     // Give it back so other tests keep a known Owner.
-    await load(next.page, "/admin");
+    await openAdmin(next.page, "ownership");
     const s2 = next.page.locator("#ownership");
     await s2.locator('input[name="newOwnerEmail"]').click();
     await s2.locator('input[name="newOwnerEmail"]').fill(ownerEmail);
@@ -123,7 +123,7 @@ test("banned email can't sign in or sign up", async ({ browser, page }) => {
   const victim = emailFor("banned");
   await register(page, "Soon Banned", victim);
   const { page: admin } = await newUser(browser, "ADMIN");
-  await load(admin, "/admin");
+  await openAdmin(admin, "bans");
   const bans = admin.locator("#bans");
   await bans.locator('input[name="email"]').fill(victim);
   await bans.locator('button:has-text("Ban email")').click();
