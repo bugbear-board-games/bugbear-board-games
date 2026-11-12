@@ -150,17 +150,6 @@ model SiteContent {
   updatedAt DateTime @updatedAt
 }
 
-// Legacy: the Contact page now lists Organizers and up automatically (User.displayTitle /
-// User.publicEmail). Kept so no existing data is lost; drop in a later migration once empty.
-model LeadershipContact {
-  id        String  @id @default(cuid())
-  name      String
-  title     String
-  email     String?
-  phone     String?
-  sortOrder Int     @default(0)
-}
-
 // One community guideline. Numbered on the site by its position (sortOrder).
 model Guideline {
   id        String   @id @default(cuid())
