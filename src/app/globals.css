@@ -290,6 +290,12 @@ input[type="checkbox"] { width: 18px; height: 18px; padding: 0; accent-color: va
 
 /* Admin */
 .admin-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+/* Admin tabs: the bubbles open one module at a time. */
+.admin-tab { background: transparent; color: var(--text); border-color: var(--line); }
+.admin-tab:hover { border-color: var(--gold); color: var(--gold); }
+.admin-tab.is-active { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.admin-tab:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+[role="tabpanel"] > .panel { margin-top: 0; }
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }

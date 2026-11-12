@@ -51,6 +51,15 @@ export async function load(page: Page, path: string) {
   await page.waitForLoadState("networkidle");
 }
 
+/**
+ * Open one Admin tab with a full page load. The query string forces a real reload even when
+ * already on /admin (a hash-only change wouldn't refetch the page).
+ */
+export async function openAdmin(page: Page, tab: string) {
+  await load(page, `/admin?_=${Date.now()}#${tab}`);
+  await expect(page.locator(`#tab-${tab}`)).toHaveAttribute("aria-selected", "true");
+}
+
 /** Click a form's submit button (not the header's "Sign out"). */
 export const submit = (page: Page) => page.click('main button[type="submit"]');
 
