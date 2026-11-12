@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The e2e tests build into .next-test so they never collide with a running `npm run dev`.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {
     // Room for event image uploads (capped at 4 MB in src/lib/images.ts) plus the form fields.
     // Stays under Vercel's 4.5 MB limit on request bodies.

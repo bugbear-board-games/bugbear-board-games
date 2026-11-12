@@ -99,9 +99,32 @@ Commit the new folder; the next deploy applies it to production.
 | `npm run dev` | Development server with hot reload |
 | `npm run build` / `npm start` | Production build (applies migrations and seeds first) / serve |
 | `npm run lint` | Type-check |
+| `npm test` / `npm run test:e2e` | Unit tests / browser tests (see Testing) |
 | `npm run setup` | Apply migrations (over HTTPS) and seed the database in `.env` |
 | `npm run db:deploy:https` | Apply pending migrations over HTTPS (works on networks that block port 5432) |
 | `npm run db:studio` | Browse and edit the database in a web UI |
+
+## Testing
+
+Every change should come with tests, and both suites should pass before committing.
+
+| Command | What it runs |
+|---|---|
+| `npm test` | Unit tests (Vitest) in `tests/unit/`: schedule math, permissions, address/link checks, Pittsburgh time |
+| `npm run test:e2e` | Browser tests (Playwright) in `tests/e2e/`: real sign-ups, events, images, admin pages, mobile header |
+| `npm run test:all` | Both |
+
+The browser tests use a separate Neon branch called `test`, so they never touch dev or
+production data. One-time setup per computer:
+
+```bash
+neon env pull --branch test --file .env.test
+```
+
+They start their own server on port 3100 with a separate build folder (`.next-test`), so they can
+run while `npm run dev` is open. They use the installed Microsoft Edge; to use Playwright's own
+Chromium instead (e.g. on CI), run `npx playwright install chromium` and set `PW_CHANNEL=chromium`.
+After a failure, `npx playwright show-report` shows screenshots and a step-by-step trace.
 
 ## Deploying (Vercel + Neon)
 

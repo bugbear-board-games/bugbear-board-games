@@ -12,6 +12,12 @@ type Props = {
   buttonClassName?: string;
   /** Clear the fields after a successful submit (e.g. "add new" forms). */
   resetOnSuccess?: boolean;
+  /** Disable the submit button (e.g. "move up" on the first item). */
+  disabled?: boolean;
+  /** Accessible name for the submit button when its label is a symbol like "↑". */
+  ariaLabel?: string;
+  /** Form-level autocomplete, e.g. "off" for forms that must be filled in deliberately. */
+  autoComplete?: "on" | "off";
 };
 
 type FieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -41,6 +47,7 @@ function invalidMessage(el: FieldElement): string {
  */
 export function ActionForm({
   action, children, submitLabel, pendingLabel = "Saving…", className = "form", buttonClassName = "btn btn-gold", resetOnSuccess,
+  disabled, ariaLabel, autoComplete,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
   const ref = useRef<HTMLFormElement>(null);
@@ -93,6 +100,7 @@ export function ActionForm({
     <form
       ref={ref}
       className={className}
+      autoComplete={autoComplete}
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
@@ -103,7 +111,7 @@ export function ActionForm({
       {state.error && <p className="msg msg-error" role="alert">{state.error}</p>}
       {state.success && <p className="msg msg-success" role="status">{state.success}</p>}
       <div>
-        <button type="submit" className={buttonClassName} disabled={pending}>
+        <button type="submit" className={buttonClassName} disabled={pending || disabled} aria-label={ariaLabel}>
           {pending ? pendingLabel : submitLabel}
         </button>
       </div>

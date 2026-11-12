@@ -33,8 +33,11 @@ export default async function EventsPage() {
       </div>
 
       {series.length > 0 && (
-        <section style={{ marginBottom: 32 }}>
-          <h2>Regular events</h2>
+        <details className="series-accordion">
+          <summary>
+            <h2>Regular events</h2>
+            <span className="series-count">{series.length}</span>
+          </summary>
           <div className="series-list">
             {series.map((s) => {
               const next = s.events[0];
@@ -54,7 +57,7 @@ export default async function EventsPage() {
               );
             })}
           </div>
-        </section>
+        </details>
       )}
 
       {series.length > 0 && <h2>Upcoming</h2>}

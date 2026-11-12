@@ -45,6 +45,7 @@ export function StartEndFields({ startLabel, startDate, startTime, endDate, endT
           <input
             type="date"
             name="endDate"
+            className="end-date"
             aria-label="End date"
             value={end}
             onChange={(e) => { setEnd(e.target.value); setEndDateTouched(true); }}

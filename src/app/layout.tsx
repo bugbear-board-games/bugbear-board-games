@@ -5,6 +5,7 @@ import { Fredoka, Nunito } from "next/font/google";
 import { getCurrentUser } from "@/lib/auth";
 import { hasRole, ROLE_LABELS, type Role } from "@/lib/roles";
 import { logout } from "@/actions/auth";
+import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
 const display = Fredoka({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" });
@@ -23,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <a href="#main" className="skip-link">Skip to content</a>
-        <header className="site-header">
+        <SiteHeader>
           <div className="container header-inner">
             <Link href="/" className="brand">
               <span className="logo-frame logo-frame-sm">
@@ -51,7 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               )}
             </nav>
           </div>
-        </header>
+        </SiteHeader>
 
         <main id="main">{children}</main>
 
