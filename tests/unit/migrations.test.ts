@@ -22,13 +22,18 @@ describe("prisma migrations", () => {
     for (const name of migrations) expect(name).toMatch(/^\d{14}_[a-z0-9_]+$/);
   });
 
-  it("the legacy LeadershipContact table is dropped only when empty", () => {
+  it("the legacy LeadershipContact rows are backed up before the table is dropped", () => {
     const sql = readFileSync(join(DIR, "20261113000000_drop_legacy_leadership", "migration.sql"), "utf8");
-    const guard = sql.indexOf('EXISTS (SELECT 1 FROM "LeadershipContact")');
+    const backup = sql.indexOf('INSERT INTO "SiteContent"');
     const drop = sql.indexOf('DROP TABLE "LeadershipContact"');
-    expect(guard).toBeGreaterThan(-1);
-    expect(sql).toContain("RAISE EXCEPTION");
-    expect(drop).toBeGreaterThan(guard);
+    expect(sql).toContain("'legacy_leadership_backup'");
+    expect(backup).toBeGreaterThan(-1);
+    expect(drop).toBeGreaterThan(backup);
+  });
+
+  it("the backup key is never one of the site's editable text blocks", async () => {
+    const { EDITABLE_CONTENT } = await import("@/lib/content");
+    expect(EDITABLE_CONTENT.map((c) => c.key)).not.toContain("legacy_leadership_backup");
   });
 
   it("the schema no longer defines LeadershipContact", () => {
