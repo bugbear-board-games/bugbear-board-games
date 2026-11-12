@@ -4,27 +4,37 @@
   "description": "Website for Bugbear Board Games, a Pittsburgh board game community",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && tsx scripts/migrate-https.ts && tsx prisma/seed.ts && next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "setup": "prisma generate && prisma db push && tsx prisma/seed.ts"
+    "setup": "tsx scripts/migrate-https.ts && tsx prisma/seed.ts",
+    "db:deploy:https": "tsx scripts/migrate-https.ts"
   },
   "author": "",
   "dependencies": {
+    "@neon/config": "^1.14.0",
+    "@neon/env": "^2.1.3",
+    "@neondatabase/serverless": "^1.2.0",
+    "@prisma/adapter-neon": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "next": "^15.5.29",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "ws": "^8.22.2"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "dotenv": "^16.6.1",
     "prisma": "^6.19.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"

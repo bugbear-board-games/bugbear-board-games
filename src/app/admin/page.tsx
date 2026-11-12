@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { EDITABLE_CONTENT, getSiteContent } from "@/lib/content";
-import { assignableRoles, rank, ROLE_LABELS, type Role } from "@/lib/roles";
-import { banEmail, deleteLeader, saveLeader, setUserRole, transferOwnership, unbanEmail, updateSiteContent } from "@/actions/admin";
+import { assignableRoles, canBan, rank, ROLE_LABELS, type Role } from "@/lib/roles";
+import { banEmail, deleteLeader, resetUserPassword, saveLeader, setUserRole, transferOwnership, unbanEmail, updateSiteContent } from "@/actions/admin";
 import { ActionForm } from "@/components/ActionForm";
 import { ConfirmButton } from "@/components/ConfirmButton";
 
@@ -98,10 +98,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           {me.role === "OWNER"
             ? "As Owner, you can make anyone a Member, Organizer, or Admin."
             : "Admins can promote Members to Organizer, or move Organizers back to Member."}
+          {" "}Use <strong>Reset</strong> to give a member who&apos;s locked out a temporary password.
         </p>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Change role</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Change role</th><th>Password</th></tr></thead>
             <tbody>
               {users.map((u) => {
                 const banned = bannedEmails.has(u.email);
@@ -123,6 +124,17 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                             {options.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                           </select>
                         </ActionForm>
+                      ) : <span className="muted">—</span>}
+                    </td>
+                    <td>
+                      {!banned && canBan(me, u) ? (
+                        <details className="reset-pw">
+                          <summary>Reset</summary>
+                          <ActionForm action={resetUserPassword.bind(null, u.id)} className="inline-form"
+                            submitLabel="Generate temporary password" pendingLabel="…" buttonClassName="btn btn-ghost btn-sm">
+                            <span className="muted">Signs {u.name} out everywhere.</span>
+                          </ActionForm>
+                        </details>
                       ) : <span className="muted">—</span>}
                     </td>
                   </tr>

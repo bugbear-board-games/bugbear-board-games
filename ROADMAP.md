@@ -56,8 +56,9 @@ KPIs to brainstorm together:
 
 ## Smaller improvements to consider
 
-- Password reset via email (needs the transactional sender above)
-- Event images, categories (e.g. "Beginner friendly", "Tournament"), recurring events
+- Password reset via email (needs the transactional sender above). Admins can already issue
+  temporary passwords from the Admin page.
+- Event categories (e.g. "Beginner friendly", "Tournament"). Images and repeating events are done.
 - Calendar export (.ics) and "Add to Google Calendar" links
 - Waitlist when an event is full
 - Email notifications for new events
